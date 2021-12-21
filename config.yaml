@@ -7,7 +7,7 @@ nodes:
 # Master node
 - role: control-plane
   extraMounts:
-  - hostPath: /Users/ysharma/Documents/Kubernetes/storage  # This is the mac laptop path where we want to store jenkins data
+  - hostPath: /Users/ysharma/Documents/Kubernetes/storage/jenkins  # This is the mac laptop path where we want to store jenkins data
     containerPath: /mnt/data
   - hostPath: /var/run/docker.sock  # This is needed to run docker as a slave node inside a jenkins server inside a container
     containerPath: /var/run/docker.sock
