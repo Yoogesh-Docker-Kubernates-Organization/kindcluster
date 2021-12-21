@@ -1,0 +1,23 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: baeldung-app
+  labels:
+    app: baeldung-app
+spec:
+  containers:
+  - name: baeldung-app
+    image: hashicorp/http-echo:0.2.3
+    args:
+    - "-text=Hello World! This is a Baeldung Kubernetes with kind App"
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: baeldung-service
+spec:
+  selector:
+    app: baeldung-app
+  ports:
+  # Default port used by the image
+  - port: 5678

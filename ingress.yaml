@@ -1,0 +1,39 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-wildcard-host
+
+spec:
+  rules:         
+  - host: "fleetman.com"
+    http:
+      paths:
+      - pathType: Prefix
+        path: "/"
+        backend:
+          service:
+            name: twm-webapp
+            port:
+              number: 80
+
+  - host: "apigateway.fleetman.com"
+    http:
+      paths:
+      - pathType: Prefix
+        path: "/"
+        backend:
+          service:
+            name: twm-my-account
+            port:
+              number: 80
+
+  - host: "mfe.fleetman.com"
+    http:
+      paths:
+      - pathType: Prefix
+        path: "/"
+        backend:
+          service:
+            name: twm-react-mfe
+            port:
+              number: 80
