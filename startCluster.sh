@@ -13,8 +13,9 @@ fi
 echo "Also DON'T forget to provide the extraMounts hostpath for Jenkins and mysql at config.yaml file to define storage path on your local....👀 👀 👀 👀"
 #####################################################################################
 
-# cluster variable (Always true)
+# cluster variable
 start_cluster="true"
+run_prod_db="false"
 
 #image creation variables
 create_jenkins_image="false"
@@ -23,7 +24,7 @@ create_api_gateway_image="false"
 create_mfe_image="false"
 
 # deployment variables
-deploy_jenkins_image="true"
+deploy_jenkins_image="false"
 deploy_webapp_image="true"
 deploy_api_gateway_image="true"
 deploy_mfe_image="true"
@@ -35,8 +36,10 @@ MY_ACCOUNT=${REPOSITORY}my-account
 REACT_MFE=${REPOSITORY}reactmfe
 
 
-############################ Start #######################################################
-if ${start_cluster} ne ''
+########################################################
+# Start a kind cluster
+########################################################
+if ${start_cluster} eq true
 then
    kind create cluster --name twm-digital --config ${CLUSTER}/config.yaml
    echo "Sleeping for 5 sec 🌲 🇮🇳 🇳🇵 🈯️ 🏕"
@@ -47,11 +50,21 @@ then
    kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
 fi
 
+# Mysql image
+if [ ${run_prod_db} = true ]
+then
+   echo "⛔️ ⛔️ ⛔️ sprintbootsecurity is set to connect with MY-SQL server. Make sure you have set envTarget=prod in its webApp.yaml file...... ⛔️ ⛔️ ⛔️"
+   kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/mysql/mysql_kind.yaml
+   echo "Sleeping for 1 min 🌲 😴 🌲 🈯️ ✅ 💪🏽 👩🏻‍🦱 🧑🏾‍🦰"
+   sleep 60
+else
+   echo "connecting to in-memory h2 database 🏪 🏞 🏡"
+fi
+
+
 ########################################################
 # Creating all required images into a cluster
 ########################################################
-
-# Jenkins image
 if ${create_jenkins_image} eq true
 then
    docker image build -t myjenkins ${CLUSTER}/.
@@ -112,8 +125,11 @@ fi
 
 if ${start_cluster} eq true
 then
-   echo "Sleeping for 1 min 🌲 😴 🌲 🈯️ ✅ 💪🏽 👩🏻‍🦱 🧑🏾‍🦰"
-   sleep 60
+   if [ ${run_prod_db} = "false" ]
+   then
+      echo "Sleeping for 1 min 🌲 😴 🌲 🈯️ ✅ 💪🏽 👩🏻‍🦱 🧑🏾‍🦰"
+      sleep 60
+   fi
    
    #Nginex controller
    kubectl apply -f ${CLUSTER}/ingress.yaml
