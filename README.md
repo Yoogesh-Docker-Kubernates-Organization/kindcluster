@@ -1,4 +1,4 @@
-b# Initial Setup
+# Initial Setup
 
 > - Install <a href="https://kind.sigs.k8s.io/" target="_blank">KIND</a> and DOCKER (This application assumes that you have KIND and DOCKER already installed into you machine)
 > - Open startCluster.sh that resides into this project and provide the <b>REPOSITORY_PATH</b> where all of your applications reside. Default REPOSITORY_PATH is <i>/Users/ysharma/Documents/Git/</i>
