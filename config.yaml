@@ -21,13 +21,30 @@ nodes:
     listenAddress: "0.0.0.0"   # Note: binding the listenAddress to 127.0.0.1 may affect your ability to access the service
     protocol: TCP
 
+  # Start: For Non-istio ingress
   - containerPort: 80
+    hostPort: 32000
+    protocol: TCP
+    
+  - containerPort: 443
+    hostPort: 33000
+    protocol: TCP
+  # Start: For Non-istio ingress
+
+  # Start: For Istio
+  - containerPort: 30000
     hostPort: 80
     protocol: TCP
 
-  - containerPort: 443
+  - containerPort: 30001
     hostPort: 443
     protocol: TCP
+
+  - containerPort: 30002
+    hostPort: 15021
+    protocol: TCP
+  # End: For Istio
+
 
   # Ingress controller setup for Kind specific
   kubeadmConfigPatches:

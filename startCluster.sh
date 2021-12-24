@@ -15,19 +15,22 @@ echo "Also DON'T forget to provide the extraMounts hostpath for Jenkins and mysq
 
 # cluster variable
 start_cluster="true"
-run_prod_db="false"
+enable_istio="true"
 
 #image creation variables
-create_jenkins_image="false"
 create_webapp_image="false"
 create_api_gateway_image="false"
 create_mfe_image="false"
+create_jenkins_image="false"
 
 # deployment variables
-deploy_jenkins_image="false"
 deploy_webapp_image="true"
 deploy_api_gateway_image="true"
 deploy_mfe_image="true"
+deploy_jenkins_image="false"
+
+# database
+run_prod_db="false"
 
 # Constants
 CLUSTER=${REPOSITORY}kindcluster
@@ -42,12 +45,23 @@ REACT_MFE=${REPOSITORY}reactmfe
 if ${start_cluster} eq true
 then
    kind create cluster --name twm-digital --config ${CLUSTER}/config.yaml
-   echo "Sleeping for 5 sec 🌲 🇮🇳 🇳🇵 🈯️ 🏕"
-   sleep 5
-   
-   # Deploy the Kubernetes supported ingress NGINX controller to work as a reverse proxy and load balancer
-   # Additionally, we can also use AWS and GCE load balancer controllers
-   kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+
+   if ${enable_istio} eq true
+   then
+      # checkout the ReadMe page to see how to generate raw_settings.yaml
+      istioctl install -f ${CLUSTER}/raw_settings.yaml -y
+      kubectl label namespace default istio-injection=enabled --overwrite
+      # Addons
+      kubectl apply -f ${CLUSTER}/addons/kiali.yaml
+      kubectl apply -f ${CLUSTER}/addons/grafana.yaml
+      kubectl apply -f ${CLUSTER}/addons/prometheus.yaml
+      kubectl apply -f ${CLUSTER}/addons/jaeger.yaml
+      #kubectl apply -f ${CLUSTER}/addons/extras/zipkin.yaml
+   else
+      # Deploy the Kubernetes supported ingress NGINX controller to work as a reverse proxy and load balancer
+      # Additionally, we can also use AWS and GCE load balancer controllers
+      kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+   fi
 fi
 
 # Mysql image
@@ -131,8 +145,29 @@ then
       sleep 60
    fi
    
-   #Nginex controller
-   kubectl apply -f ${CLUSTER}/ingress.yaml
+   if ${enable_istio} eq true
+   then
+      kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/gateway/istio-firewall.yaml
+      kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/gateway/istio-route-monitoring.yaml
+
+      if ${deploy_webapp_image} eq true
+        kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/gateway/istio-route-webapp.yaml
+      then
+      fi
+
+      if ${deploy_api_gateway_image} eq true
+        kubectl apply -f ${MY_ACCOUNT}/devops/istio-route-webapp.yaml
+      then
+      fi
+
+      if ${deploy_mfe_image} eq true
+        kubectl apply -f ${REACT_MFE}/MFE/resources/devops/k8s_aws/istio-route-webapp.yaml
+      then
+      fi
+   else
+      #Nginex controller
+      kubectl apply -f ${CLUSTER}/ingress.yaml
+   fi
    
    echo "Cluster and Ingress successfully started"
 else
