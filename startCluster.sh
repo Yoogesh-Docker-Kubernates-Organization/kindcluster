@@ -32,6 +32,9 @@ deploy_jenkins_image="false"
 # database
 run_prod_db="false"
 
+# tracing (default will be jaeger if zipkin is not enabled manually)
+enable_zipkin="false"
+
 # Constants
 CLUSTER=${REPOSITORY}kindcluster
 SPRING_BOOT_SECURITY=${REPOSITORY}springbootsecurity
@@ -55,8 +58,14 @@ then
       kubectl apply -f ${CLUSTER}/addons/kiali.yaml
       kubectl apply -f ${CLUSTER}/addons/grafana.yaml
       kubectl apply -f ${CLUSTER}/addons/prometheus.yaml
-      kubectl apply -f ${CLUSTER}/addons/jaeger.yaml
-      #kubectl apply -f ${CLUSTER}/addons/extras/zipkin.yaml
+
+      #At a time only one can be activated as both points the service 'tracer'
+      if ${enable_zipkin} eq true
+      then
+         kubectl apply -f ${CLUSTER}/addons/extras/zipkin.yaml
+      else
+         kubectl apply -f ${CLUSTER}/addons/jaeger.yaml 
+      fi
    else
       # Deploy the Kubernetes supported ingress NGINX controller to work as a reverse proxy and load balancer
       # Additionally, we can also use AWS and GCE load balancer controllers
@@ -147,6 +156,7 @@ then
    
    if ${enable_istio} eq true
    then
+      # Istio ingress gateway
       kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/gateway/istio-firewall.yaml
       kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/gateway/istio-route-monitoring.yaml
 
@@ -164,12 +174,13 @@ then
         kubectl apply -f ${REACT_MFE}/MFE/resources/devops/k8s_aws/istio-route-webapp.yaml
       then
       fi
+      echo "Cluster and sophisticated Istio ingress gate-way successfully started ..........👍 👍 👍"
    else
       #Nginex controller
       kubectl apply -f ${CLUSTER}/ingress.yaml
+      echo "Cluster and plain kubernetes ingress controller successfully started ..........👍 👍 👍"
    fi
    
-   echo "Cluster and Ingress successfully started"
 else
   echo "Re-deployment of image is done successfully ..........👍 👍 👍"
 fi
