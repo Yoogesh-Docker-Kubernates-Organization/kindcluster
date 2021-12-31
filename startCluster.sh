@@ -35,6 +35,10 @@ run_prod_db="false"
 # tracing (default will be jaeger if zipkin is not enabled manually)
 enable_zipkin="false"
 
+#canery releases
+enableIstioCanery="true"
+enableCaneryWithLoadBalancer="true"
+
 # Constants
 CLUSTER=${REPOSITORY}kindcluster
 SPRING_BOOT_SECURITY=${REPOSITORY}springbootsecurity
@@ -54,6 +58,8 @@ then
       # checkout the ReadMe page to see how to generate raw_settings.yaml
       istioctl install -f ${CLUSTER}/raw_settings.yaml -y
       kubectl label namespace default istio-injection=enabled --overwrite
+      kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/gateway/istio-firewall.yaml
+
       # Addons
       kubectl apply -f ${CLUSTER}/addons/kiali.yaml
       kubectl apply -f ${CLUSTER}/addons/grafana.yaml
@@ -131,6 +137,13 @@ then
   kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/webapp/webApp.yaml
 fi
 
+if ${enableIstioCanery} eq true
+then
+  docker pull yoogesh1983/springbootsecurity:istio-risky
+  kind load docker-image yoogesh1983/springbootsecurity:istio-risky --name twm-digital
+  kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/canery/webapp.yaml
+fi
+
 # my-account deployment
 if ${deploy_api_gateway_image} eq true
 then
@@ -156,25 +169,43 @@ then
    
    if ${enable_istio} eq true
    then
-      # Istio ingress gateway
-      kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/gateway/istio-firewall.yaml
-      kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/gateway/istio-route-monitoring.yaml
+           # Montoring stack virtual service deployment
+           kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/gateway/istio-route-monitoring.yaml
 
-      if ${deploy_webapp_image} eq true
-        kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/gateway/istio-route-webapp.yaml
-      then
-      fi
+           # springbootapplcation virtual service deployment
+           if ${deploy_webapp_image} eq true
+           then
+               if ${enableIstioCanery} eq true
+               then
+                 kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/canery/destinationRule.yaml
+                 if ${enableCaneryWithLoadBalancer} eq true
+                 then
+                    kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/canery/vs_canery_loadbalancer.yaml
+                 else
+                     if ${enableFaultInjection} eq true
+                     then
+                       kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/canery/enableFaultInjection.yaml
+                     else
+                       kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/canery/vs_canery_headerParam.yaml
+                     fi
+                 fi
+               else
+                 kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/gateway/istio-route-webapp.yaml
+               fi
+            fi
 
-      if ${deploy_api_gateway_image} eq true
-        kubectl apply -f ${MY_ACCOUNT}/devops/istio-route-webapp.yaml
-      then
-      fi
+            # my-account virtual service deployment
+            if ${deploy_api_gateway_image} eq true
+            then
+              kubectl apply -f ${MY_ACCOUNT}/devops/istio-route-webapp.yaml
+            fi
 
-      if ${deploy_mfe_image} eq true
-        kubectl apply -f ${REACT_MFE}/MFE/resources/devops/k8s_aws/istio-route-webapp.yaml
-      then
-      fi
-      echo "Cluster and sophisticated Istio ingress gate-way successfully started ..........👍 👍 👍"
+            # mfe virtual service deployment
+            if ${deploy_mfe_image} eq true
+            then
+              kubectl apply -f ${REACT_MFE}/MFE/resources/devops/k8s_aws/istio-route-webapp.yaml
+            fi
+            echo "Cluster and sophisticated Istio ingress gate-way successfully started ..........👍 👍 👍"
    else
       #Nginex controller
       kubectl apply -f ${CLUSTER}/ingress.yaml
