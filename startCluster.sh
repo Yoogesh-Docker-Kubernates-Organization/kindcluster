@@ -14,30 +14,35 @@ echo "Also DON'T forget to provide the extraMounts hostpath for Jenkins and mysq
 #####################################################################################
 
 # cluster variable
-start_cluster="true"
-enable_istio="true"
+start_cluster=true
+enable_istio=false
 
 #image creation variables
-create_webapp_image="false"
-create_api_gateway_image="false"
-create_mfe_image="false"
-create_jenkins_image="false"
+create_webapp_image=false
+create_api_gateway_image=false
+create_mfe_image=false
+create_jenkins_image=false
 
 # deployment variables
-deploy_webapp_image="true"
-deploy_api_gateway_image="true"
-deploy_mfe_image="true"
-deploy_jenkins_image="false"
+deploy_webapp_image=true
+deploy_api_gateway_image=false
+deploy_mfe_image=false
+deploy_jenkins_image=false
 
 # database
-run_prod_db="false"
+run_prod_db=true
 
-# tracing (default will be jaeger if zipkin is not enabled manually)
-enable_zipkin="false"
 
-#canery releases
-enableIstioCanery="true"
-enableCaneryWithLoadBalancer="true"
+########### Istio related configuration  : Start ####################
+enable_jaeger=false
+enable_zipkin=false
+
+#istio canery releases for SpringBootSecurity application
+enableCaneryWithLoadBalancer=false   # This will redirect 60% trafic to riskey version whereas 40% traffic to the current prod version (safe version). Drawback of this approach is that it doesn't have session stickeyness and hence we cannot control which version the request should go to
+enableFaultInjection=false
+enableCaneryWithHeaderparam=false
+########### Istio related configuration  : End ####################
+
 
 # Constants
 CLUSTER=${REPOSITORY}kindcluster
@@ -45,8 +50,19 @@ SPRING_BOOT_SECURITY=${REPOSITORY}springbootsecurity
 MY_ACCOUNT=${REPOSITORY}my-account
 REACT_MFE=${REPOSITORY}reactmfe
 
+# Setting some values dynamically
+##################################
+if ${enable_istio} eq true
+then
+    if ${enableCaneryWithHeaderparam} eq true || ${enableCaneryWithLoadBalancer} eq true || ${enableFaultInjection} eq true
+    then
+       if ${deploy_webapp_image} eq true
+       then
+           enableIstioCanery=true
+       fi
+    fi
+fi
 
-########################################################
 # Start a kind cluster
 ########################################################
 if ${start_cluster} eq true
@@ -66,11 +82,14 @@ then
       kubectl apply -f ${CLUSTER}/addons/prometheus.yaml
 
       #At a time only one can be activated as both points the service 'tracer'
-      if ${enable_zipkin} eq true
+      if ${enable_jaeger} eq true
       then
-         kubectl apply -f ${CLUSTER}/addons/extras/zipkin.yaml
-      else
          kubectl apply -f ${CLUSTER}/addons/jaeger.yaml 
+      else
+         if if ${enable_zipkin} eq true
+         then
+           kubectl apply -f ${CLUSTER}/addons/extras/zipkin.yaml
+         fi
       fi
    else
       # Deploy the Kubernetes supported ingress NGINX controller to work as a reverse proxy and load balancer
@@ -78,6 +97,7 @@ then
       kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
    fi
 fi
+
 
 # Mysql image
 if [ ${run_prod_db} = true ]
@@ -87,7 +107,7 @@ then
    echo "Sleeping for 1 min 🌲 😴 🌲 🈯️ ✅ 💪🏽 👩🏻‍🦱 🧑🏾‍🦰"
    sleep 60
 else
-   echo "connecting to in-memory h2 database 🏪 🏞 🏡"
+   echo "connecting to in-memory h2 database. Make sure you have set envTarget=local in its webApp.yaml file...... 🏪 🏞 🏡"
 fi
 
 
@@ -137,11 +157,16 @@ then
   kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/webapp/webApp.yaml
 fi
 
+# SpringBootSecurity canery deployment
 if ${enableIstioCanery} eq true
 then
-  docker pull yoogesh1983/springbootsecurity:istio-risky
-  kind load docker-image yoogesh1983/springbootsecurity:istio-risky --name twm-digital
-  kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/canery/webapp.yaml
+      if ${enableCaneryWithLoadBalancer} eq true
+      then
+         # As we are directly pulling the image from docker hub, we don't need below two lines
+         #docker pull yoogesh1983/springbootsecurity:istio-risky
+         #kind load docker-image yoogesh1983/springbootsecurity:istio-risky --name twm-digital
+         kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/canery/webapp.yaml
+      fi
 fi
 
 # my-account deployment
@@ -186,7 +211,10 @@ then
                      then
                        kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/canery/enableFaultInjection.yaml
                      else
-                       kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/canery/vs_canery_headerParam.yaml
+                        if ${enableCaneryWithHeaderparam} eq true
+                        then
+                           kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/canery/vs_canery_headerParam.yaml
+                        fi
                      fi
                  fi
                else
@@ -205,11 +233,11 @@ then
             then
               kubectl apply -f ${REACT_MFE}/MFE/resources/devops/k8s_aws/istio-route-webapp.yaml
             fi
-            echo "Cluster and sophisticated Istio ingress gate-way successfully started ..........👍 👍 👍"
+            echo "Cluster and sophisticated Istio ingress gate-way successfully started and is available at port 80..........👍 👍 👍"
    else
       #Nginex controller
       kubectl apply -f ${CLUSTER}/ingress.yaml
-      echo "Cluster and plain kubernetes ingress controller successfully started ..........👍 👍 👍"
+      echo "Cluster and plain kubernetes ingress controller successfully started and is available at port 32000 ..........👍 👍 👍"
    fi
    
 else
