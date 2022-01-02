@@ -15,7 +15,7 @@ echo "Also DON'T forget to provide the extraMounts hostpath for Jenkins and mysq
 
 # cluster variable
 start_cluster=true
-enable_istio=false
+enable_istio=true
 
 #image creation variables
 create_webapp_image=false
@@ -30,18 +30,19 @@ deploy_mfe_image=false
 deploy_jenkins_image=false
 
 # database
-run_prod_db=true
+run_prod_db=false
 
 
-########### Istio related configuration  : Start ####################
+#------------- Istio related configuration  : Start -----------------#
 enable_jaeger=false
 enable_zipkin=false
 
 #istio canery releases for SpringBootSecurity application
 enableCaneryWithLoadBalancer=false   # This will redirect 60% trafic to riskey version whereas 40% traffic to the current prod version (safe version). Drawback of this approach is that it doesn't have session stickeyness and hence we cannot control which version the request should go to
+enableCaneryWithStickey=false        # Unlike above, here the single user can stick with the same version depending on which version he/she got first. For this he needs to pass "my-access-token=${randomValue}" from mod-header
 enableFaultInjection=false
 enableCaneryWithHeaderparam=false
-########### Istio related configuration  : End ####################
+#------------- Istio related configuration  : End -----------------#
 
 
 # Constants
@@ -54,7 +55,7 @@ REACT_MFE=${REPOSITORY}reactmfe
 ##################################
 if ${enable_istio} eq true
 then
-    if ${enableCaneryWithHeaderparam} eq true || ${enableCaneryWithLoadBalancer} eq true || ${enableFaultInjection} eq true
+    if ${enableCaneryWithHeaderparam} eq true || ${enableCaneryWithLoadBalancer} eq true || ${enableFaultInjection} eq true || ${enableCaneryWithStickey} eq true
     then
        if ${deploy_webapp_image} eq true
        then
@@ -74,7 +75,6 @@ then
       # checkout the ReadMe page to see how to generate raw_settings.yaml
       istioctl install -f ${CLUSTER}/raw_settings.yaml -y
       kubectl label namespace default istio-injection=enabled --overwrite
-      kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/gateway/istio-firewall.yaml
 
       # Addons
       kubectl apply -f ${CLUSTER}/addons/kiali.yaml
@@ -85,11 +85,10 @@ then
       if ${enable_jaeger} eq true
       then
          kubectl apply -f ${CLUSTER}/addons/jaeger.yaml 
-      else
-         if if ${enable_zipkin} eq true
-         then
-           kubectl apply -f ${CLUSTER}/addons/extras/zipkin.yaml
-         fi
+      else if ${enable_zipkin} eq true
+      then
+         kubectl apply -f ${CLUSTER}/addons/extras/zipkin.yaml
+      fi
       fi
    else
       # Deploy the Kubernetes supported ingress NGINX controller to work as a reverse proxy and load balancer
@@ -102,12 +101,11 @@ fi
 # Mysql image
 if [ ${run_prod_db} = true ]
 then
-   echo "⛔️ ⛔️ ⛔️ sprintbootsecurity is set to connect with MY-SQL server. Make sure you have set envTarget=prod in its webApp.yaml file...... ⛔️ ⛔️ ⛔️"
    kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/mysql/mysql_kind.yaml
-   echo "Sleeping for 1 min 🌲 😴 🌲 🈯️ ✅ 💪🏽 👩🏻‍🦱 🧑🏾‍🦰"
-   sleep 60
+   echo "Sleeping for 1 min 40 second for MY-SQL server startup 🌲 😴 🌲 🈯️ ✅ 💪🏽 👩🏻‍🦱 🧑🏾‍🦰"
+   sleep 100
 else
-   echo "connecting to in-memory h2 database. Make sure you have set envTarget=local in its webApp.yaml file...... 🏪 🏞 🏡"
+   echo "⛔️ ⛔️ ⛔️ sprintbootsecurity is set to connect with IN-MEMORY h2 database and this is not a production standard. You must set run_prod_db=true to use my-sql db when deploying in production environment ⛔️ ⛔️ ⛔️"
 fi
 
 
@@ -154,13 +152,18 @@ fi
 if ${deploy_webapp_image} eq true
 then
   kind load docker-image yoogesh1983/springbootsecurity --name twm-digital
-  kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/webapp/webApp.yaml
+  if ${run_prod_db} eq true
+  then
+     kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/webapp/webApp.yaml
+  else
+     kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/webapp/webapp_local.yaml
+  fi
 fi
 
 # SpringBootSecurity canery deployment
 if ${enableIstioCanery} eq true
 then
-      if ${enableCaneryWithLoadBalancer} eq true
+      if ${enableCaneryWithLoadBalancer} eq true || ${enableCaneryWithStickey} eq true
       then
          # As we are directly pulling the image from docker hub, we don't need below two lines
          #docker pull yoogesh1983/springbootsecurity:istio-risky
@@ -194,6 +197,9 @@ then
    
    if ${enable_istio} eq true
    then
+           # Setting up fire-wall for istio-ingress controller
+           kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/gateway/istio-firewall.yaml
+
            # Montoring stack virtual service deployment
            kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/gateway/istio-route-monitoring.yaml
 
@@ -202,22 +208,27 @@ then
            then
                if ${enableIstioCanery} eq true
                then
-                 kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/canery/destinationRule.yaml
-                 if ${enableCaneryWithLoadBalancer} eq true
-                 then
-                    kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/canery/vs_canery_loadbalancer.yaml
-                 else
-                     if ${enableFaultInjection} eq true
+                     if ${enableCaneryWithStickey} eq true
                      then
-                       kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/canery/enableFaultInjection.yaml
+                           kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/canery/destinationRule_stickey.yaml
+                           kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/canery/vs_stickey.yaml
                      else
-                        if ${enableCaneryWithHeaderparam} eq true
-                        then
-                           kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/canery/vs_canery_headerParam.yaml
-                        fi
+                           kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/canery/destinationRule.yaml
+                           if ${enableCaneryWithLoadBalancer} eq true
+                           then
+                              kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/canery/vs_canery_loadbalancer.yaml
+                           else if ${enableFaultInjection} eq true
+                           then
+                              kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/canery/enableFaultInjection.yaml
+                           else if ${enableCaneryWithHeaderparam} eq true
+                           then
+                              kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/canery/vs_canery_headerParam.yaml
+                           fi
+                           fi
+                           fi
                      fi
-                 fi
                else
+                 # No destinationRule is required when not using canery as we will not required to do Load balancer here since only one version of pod is running in this case
                  kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/gateway/istio-route-webapp.yaml
                fi
             fi
