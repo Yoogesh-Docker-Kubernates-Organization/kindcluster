@@ -15,10 +15,10 @@ echo "Also DON'T forget to provide the extraMounts hostpath for Jenkins and mysq
 
 # cluster variable
 start_cluster=true
-enable_istio=false
+enable_istio=true
 
 #image creation variables
-create_webapp_image=true
+create_webapp_image=false
 create_api_gateway_image=false
 create_mfe_image=false
 create_jenkins_image=false
@@ -34,14 +34,21 @@ run_prod_db=false
 
 
 #------------- Istio related configuration  : Start -----------------#
+enable_kiali=true
+enable_grafana=false
+
+#tracer [only one can be applied at a time]
 enable_jaeger=false
 enable_zipkin=false
 
-#istio canery releases for SpringBootSecurity application
+#canery releases [only one can be applied at a time]
 enableCaneryWithLoadBalancer=false   # This will redirect 60% trafic to riskey version whereas 40% traffic to the current prod version (safe version). Drawback of this approach is that it doesn't have session stickeyness and hence we cannot control which version the request should go to
 enableCaneryWithStickey=false        # Unlike above, here the single user can stick with the same version depending on which version he/she got first. For this he needs to pass "my-access-token=${randomValue}" from mod-header
-enableFaultInjection=false
-enableCaneryWithHeaderparam=false
+enableCaneryWithHeaderparam=false    # This is a sophiscicated version of enableCaneryWithLoadBalancer where we can decide whether to do a loadbalancer or send all 100% traffic to just one version and this can be decided by the header param we passed
+enableFaultInjection=false            # This will always redirects testers to the canery version (riskey version) only the header parameter "x-istio-header=canery" is set. However this riskey page will only be loaded after 20 sec delay. BTW if we don't use header param, it will always fallback to safe version
+
+#circuit breaker
+enableCircuitBreaker=true
 #------------- Istio related configuration  : End -----------------#
 
 
@@ -53,15 +60,21 @@ REACT_MFE=${REPOSITORY}reactmfe
 
 # Setting some values dynamically
 ##################################
+enableIstioCanery=false
+enable_prometheus=false
 if ${enable_istio} eq true
 then
-    enableIstioCanery=false
     if ${enableCaneryWithHeaderparam} eq true || ${enableCaneryWithLoadBalancer} eq true || ${enableFaultInjection} eq true || ${enableCaneryWithStickey} eq true
     then
        if ${deploy_webapp_image} eq true
        then
            enableIstioCanery=true
        fi
+    fi
+
+    if ${enable_kiali} eq true || ${enable_grafana} eq true 
+    then
+       enable_prometheus=true
     fi
 fi
 
@@ -78,9 +91,18 @@ then
       kubectl label namespace default istio-injection=enabled --overwrite
 
       # Addons
-      kubectl apply -f ${CLUSTER}/addons/kiali.yaml
-      kubectl apply -f ${CLUSTER}/addons/grafana.yaml
-      kubectl apply -f ${CLUSTER}/addons/prometheus.yaml
+      if ${enable_prometheus} eq true
+      then
+         kubectl apply -f ${CLUSTER}/addons/prometheus.yaml
+      fi
+      if ${enable_kiali} eq true
+      then
+          kubectl apply -f ${CLUSTER}/addons/kiali.yaml
+      fi
+      if ${enable_grafana} eq true
+      then
+         kubectl apply -f ${CLUSTER}/addons/grafana.yaml
+      fi
 
       #At a time only one can be activated as both points the service 'tracer'
       if ${enable_jaeger} eq true
@@ -164,13 +186,10 @@ fi
 # SpringBootSecurity canery deployment
 if ${enableIstioCanery} eq true
 then
-      if ${enableCaneryWithLoadBalancer} eq true || ${enableCaneryWithStickey} eq true
-      then
-         # As we are directly pulling the image from docker hub, we don't need below two lines
-         #docker pull yoogesh1983/springbootsecurity:istio-risky
-         #kind load docker-image yoogesh1983/springbootsecurity:istio-risky --name twm-digital
-         kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/canery/webapp.yaml
-      fi
+      # As we are directly pulling the image from docker hub, we don't need below two lines
+      #docker pull yoogesh1983/springbootsecurity:istio-risky
+      #kind load docker-image yoogesh1983/springbootsecurity:istio-risky --name twm-digital
+      kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/canery/webapp.yaml
 fi
 
 # my-account deployment
@@ -204,6 +223,12 @@ then
            # Montoring stack virtual service deployment
            kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/gateway/istio-route-monitoring.yaml
 
+           # Enable circuit breaker
+           if ${enableCircuitBreaker} eq true
+           then
+              kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/circuitBreaking/istio_circuit_breaking.yaml
+           fi
+
            # springbootapplcation virtual service deployment
            if ${deploy_webapp_image} eq true
            then
@@ -218,12 +243,12 @@ then
                            if ${enableCaneryWithLoadBalancer} eq true
                            then
                               kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/canery/vs_canery_loadbalancer.yaml
-                           else if ${enableFaultInjection} eq true
-                           then
-                              kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/canery/enableFaultInjection.yaml
                            else if ${enableCaneryWithHeaderparam} eq true
                            then
                               kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/canery/vs_canery_headerParam.yaml
+                           else if ${enableFaultInjection} eq true  
+                           then
+                              kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/canery/vs_fault_injection.yaml
                            fi
                            fi
                            fi
@@ -256,5 +281,3 @@ else
   echo "Re-deployment of image is done successfully ..........👍 👍 👍"
 fi
 
-## Below command can be used if you want to make a get request continuously in .5 second and print the line where there is 'Login' word
-# while true; do curl -s http://fleetman.com/springbootsecurity/ | grep Login; sleep 0.5; done

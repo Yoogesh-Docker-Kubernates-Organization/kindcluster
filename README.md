@@ -25,3 +25,8 @@
 
 > - Make sure Istio changes version to version. So you need to geneate new raw_settings.yaml every time the istioctl version changes. You cannot use old <b>raw_settings.yaml</b> for new version of <strong>Istio</strong> i.e. istioctl 
 
+# Making get request from commandline continuously
+
+Below command can be used if you want to make a get request continuously in .5 second and print the line where there is 'Login' word
+> <b>while true; do curl -s http://fleetman.com/springbootsecurity/ | grep Login; sleep 0.5; done</b>
+
