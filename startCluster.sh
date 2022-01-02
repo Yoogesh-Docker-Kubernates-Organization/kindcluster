@@ -15,10 +15,10 @@ echo "Also DON'T forget to provide the extraMounts hostpath for Jenkins and mysq
 
 # cluster variable
 start_cluster=true
-enable_istio=true
+enable_istio=false
 
 #image creation variables
-create_webapp_image=false
+create_webapp_image=true
 create_api_gateway_image=false
 create_mfe_image=false
 create_jenkins_image=false
@@ -55,6 +55,7 @@ REACT_MFE=${REPOSITORY}reactmfe
 ##################################
 if ${enable_istio} eq true
 then
+    enableIstioCanery=false
     if ${enableCaneryWithHeaderparam} eq true || ${enableCaneryWithLoadBalancer} eq true || ${enableFaultInjection} eq true || ${enableCaneryWithStickey} eq true
     then
        if ${deploy_webapp_image} eq true
@@ -255,4 +256,5 @@ else
   echo "Re-deployment of image is done successfully ..........👍 👍 👍"
 fi
 
-
+## Below command can be used if you want to make a get request continuously in .5 second and print the line where there is 'Login' word
+# while true; do curl -s http://fleetman.com/springbootsecurity/ | grep Login; sleep 0.5; done
