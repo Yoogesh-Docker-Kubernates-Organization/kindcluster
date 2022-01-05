@@ -15,10 +15,10 @@ echo "Also DON'T forget to provide the extraMounts hostpath for Jenkins and mysq
 
 # cluster variable
 start_cluster=true
-enable_istio=true
+enable_istio=false
 
 #image creation variables
-create_webapp_image=false
+create_webapp_image=true
 create_api_gateway_image=false
 create_mfe_image=false
 create_jenkins_image=false
@@ -77,6 +77,7 @@ then
        enable_prometheus=true
     fi
 fi
+
 
 # Start a kind cluster
 ########################################################
@@ -174,13 +175,14 @@ fi
 # SpringBootSecurity deployment
 if ${deploy_webapp_image} eq true
 then
-  kind load docker-image yoogesh1983/springbootsecurity --name twm-digital
+  export ENV_TARGET=local
   if ${run_prod_db} eq true
   then
-     kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/webapp/webApp.yaml
-  else
-     kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/webapp/webapp_local.yaml
+     ENV_TARGET=prod
   fi
+  kind load docker-image yoogesh1983/springbootsecurity --name twm-digital
+  kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/configmap/configTree.yaml
+  envsubst < ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/webapp/webApp.yaml | kubectl apply -f -
 fi
 
 # SpringBootSecurity canery deployment
