@@ -181,7 +181,7 @@ then
      ENV_TARGET=prod
   fi
   kind load docker-image yoogesh1983/springbootsecurity --name twm-digital
-  kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/configmap/configTree.yaml
+  kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/configmap/secretTree.yaml
   envsubst < ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/webapp/webApp.yaml | kubectl apply -f -
 fi
 
