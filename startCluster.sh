@@ -19,19 +19,21 @@ enable_istio=false
 
 #image creation variables
 create_webapp_image=true
+create_jrni_image=false
 create_api_gateway_image=false
 create_mfe_image=false
 create_jenkins_image=false
 
 # deployment variables
 deploy_webapp_image=true
+deploy_jrni_image=false
 deploy_api_gateway_image=false
 deploy_mfe_image=false
 deploy_jenkins_image=false
 
 # database
-run_prod_db=false
-
+run_prod_db=true
+use_mongo=true
 
 #------------- Istio related configuration  : Start -----------------#
 enable_kiali=true
@@ -54,7 +56,9 @@ enableCircuitBreaker=true
 
 # Constants
 CLUSTER=${REPOSITORY}kindcluster
-SPRING_BOOT_SECURITY=${REPOSITORY}springbootsecurity
+SPRING_BOOT_SECURITY_PARENT=${REPOSITORY}springbootsecurity-parent
+SPRING_BOOT_SECURITY=${SPRING_BOOT_SECURITY_PARENT}/springbootsecurity
+JRNI=${REPOSITORY}springbootsecurity-parent/jrni
 MY_ACCOUNT=${REPOSITORY}my-account
 REACT_MFE=${REPOSITORY}reactmfe
 
@@ -123,13 +127,20 @@ fi
 
 
 # Mysql image
-if [ ${run_prod_db} = true ]
+if ${run_prod_db} eq true
 then
-   kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/mysql/mysql_kind.yaml
-   echo "Sleeping for 1 min 40 second for MY-SQL server startup 🌲 😴 🌲 🈯️ ✅ 💪🏽 👩🏻‍🦱 🧑🏾‍🦰"
-   sleep 100
+   if ${use_mongo} eq true
+   then
+      kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/mongo/mongo_kind.yaml
+      echo "Sleeping 30 second for MONGO-DB startup 🌲 😴 🌲 🈯️ ✅ 💪🏽 👩🏻‍🦱 🧑🏾‍🦰"
+      sleep 30
+   else
+      kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/mysql/mysql_kind.yaml
+      echo "Sleeping 1 min 40 second for MY-SQL startup 🌲 😴 🌲 🈯️ ✅ 💪🏽 👩🏻‍🦱 🧑🏾‍🦰"
+      sleep 100    
+   fi
 else
-   echo "⛔️ ⛔️ ⛔️ sprintbootsecurity is set to connect with IN-MEMORY h2 database and this is not a production standard. You must set run_prod_db=true to use my-sql db when deploying in production environment ⛔️ ⛔️ ⛔️"
+   echo "⛔️ ⛔️ ⛔️ sprintbootsecurity is set to connect with IN-MEMORY h2 database and this is not a production standard. You must set run_prod_db=true to use my-sql or MONGO_DB when deploying in production environment ⛔️ ⛔️ ⛔️"
 fi
 
 
@@ -144,8 +155,15 @@ fi
 # SpringbootSecurity image creation
 if ${create_webapp_image} eq true
 then
-   mvn -f ${SPRING_BOOT_SECURITY}/pom.xml clean install
+   mvn -f ${SPRING_BOOT_SECURITY_PARENT}/pom.xml clean install
    docker image build -t yoogesh1983/springbootsecurity:latest ${SPRING_BOOT_SECURITY}/.
+fi
+
+# Jrni image creation
+if ${create_jrni_image} eq true
+then
+   mvn -f ${JRNI}/pom.xml clean install
+   docker image build -t yoogesh1983/jrni:latest ${JRNI}/.
 fi
 
 # My-account image creation
@@ -176,10 +194,19 @@ fi
 if ${deploy_webapp_image} eq true
 then
   export ENV_TARGET=local
+  export ENV_DATABASE=h2
+  
   if ${run_prod_db} eq true
   then
      ENV_TARGET=prod
+     if ${use_mongo} eq true
+     then
+       ENV_DATABASE=mongo
+     else
+       ENV_DATABASE=my-sql
+     fi
   fi
+
   kind load docker-image yoogesh1983/springbootsecurity --name twm-digital
   kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/configmap/secretTree.yaml
   envsubst < ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/webapp/webApp.yaml | kubectl apply -f -
@@ -192,6 +219,14 @@ then
       #docker pull yoogesh1983/springbootsecurity:istio-risky
       #kind load docker-image yoogesh1983/springbootsecurity:istio-risky --name twm-digital
       kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/istio/canery/webapp.yaml
+fi
+
+# Jrni deployment
+if ${deploy_jrni_image} eq true
+then
+  export ENV_TARGET=prod
+  kind load docker-image yoogesh1983/jrni --name twm-digital
+  envsubst < ${JRNI}/src/main/resources/devops/k8s_aws/webapp/webApp.yaml | kubectl apply -f -
 fi
 
 # my-account deployment

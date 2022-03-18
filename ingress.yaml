@@ -37,3 +37,14 @@ spec:
             name: twm-react-mfe
             port:
               number: 80
+
+  - host: jrni.fleetman.com
+    http:
+      paths:
+      - pathType: Prefix
+        path: /
+        backend:
+          service:
+            name: twm-jrni-api
+            port:
+              number: 80

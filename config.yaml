@@ -9,6 +9,8 @@ nodes:
   extraMounts:
   - hostPath: /Users/ysharma/Documents/Kubernetes/storage/jenkins  # This is the mac laptop path where we want to store jenkins data
     containerPath: /mnt/data
+  - hostPath: /Users/ysharma/Documents/Kubernetes/storage/mongo  # This is the mac laptop path where we want to store mongo data
+    containerPath: /mnt/mongodb
   - hostPath: /Users/ysharma/Documents/Kubernetes/storage/mysql  # This is the mac laptop path where we want to store mysql data
     containerPath: /mnt/data/mysql
   - hostPath: /var/run/docker.sock  # This is needed to run docker as a slave node inside a jenkins server inside a container
