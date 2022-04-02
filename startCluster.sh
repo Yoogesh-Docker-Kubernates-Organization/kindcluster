@@ -13,12 +13,16 @@ fi
 echo "Also DON'T forget to provide the extraMounts hostpath for Jenkins and mysql at config.yaml file to define storage path on your local....👀 👀 👀 👀"
 #####################################################################################
 
+# constant
+MONGO='mongo'
+MYSQL='mysql'
+
 # cluster variable
 start_cluster=true
 enable_istio=false
 
 #image creation variables
-create_webapp_image=true
+create_webapp_image=false
 create_jrni_image=false
 create_api_gateway_image=false
 create_mfe_image=false
@@ -33,7 +37,7 @@ deploy_jenkins_image=false
 
 # database
 run_prod_db=true
-use_mongo=true
+db_name=$MONGO
 
 #------------- Istio related configuration  : Start -----------------#
 enable_kiali=true
@@ -129,15 +133,20 @@ fi
 # Mysql image
 if ${run_prod_db} eq true
 then
-   if ${use_mongo} eq true
+   if [ ${db_name} = $MONGO ]
    then
       kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/mongo/mongo_kind.yaml
       echo "Sleeping 30 second for MONGO-DB startup 🌲 😴 🌲 🈯️ ✅ 💪🏽 👩🏻‍🦱 🧑🏾‍🦰"
       sleep 30
    else
-      kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/mysql/mysql_kind.yaml
-      echo "Sleeping 1 min 40 second for MY-SQL startup 🌲 😴 🌲 🈯️ ✅ 💪🏽 👩🏻‍🦱 🧑🏾‍🦰"
-      sleep 100    
+     if [ ${db_name} = $MYSQL ]
+        kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/mysql/mysql_kind.yaml
+        echo "Sleeping 1 min 40 second for MY-SQL startup 🌲 😴 🌲 🈯️ ✅ 💪🏽 👩🏻‍🦱 🧑🏾‍🦰"
+        sleep 100 
+     then
+     else
+       echo "⛔️ ⛔️ ⛔️ You provided a database name ${db_name} which is invalid. Please provide a valid database name ⛔️ ⛔️ ⛔️"   
+     fi
    fi
 else
    echo "⛔️ ⛔️ ⛔️ sprintbootsecurity is set to connect with IN-MEMORY h2 database and this is not a production standard. You must set run_prod_db=true to use my-sql or MONGO_DB when deploying in production environment ⛔️ ⛔️ ⛔️"
@@ -199,11 +208,16 @@ then
   if ${run_prod_db} eq true
   then
      ENV_TARGET=prod
-     if ${use_mongo} eq true
+     if [ ${db_name} = $MONGO ]
      then
        ENV_DATABASE=mongo
      else
-       ENV_DATABASE=my-sql
+       if [ ${db_name} = $MYSQL ]
+       then
+         ENV_DATABASE=my-sql
+       else
+         echo "⛔️ ⛔️ ⛔️ You provided a database name ${db_name} which is invalid. Please provide a valid database name ⛔️ ⛔️ ⛔️"   
+       fi
      fi
   fi
 
