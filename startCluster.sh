@@ -13,9 +13,13 @@ fi
 echo "Also DON'T forget to provide the extraMounts hostpath for Jenkins and mysql at config.yaml file to define storage path on your local....👀 👀 👀 👀"
 #####################################################################################
 
-# constant
+# Constant
+LOCAL='local'
 MONGO='mongo'
 MYSQL='mysql'
+
+# database
+db_name=$LOCAL
 
 # cluster variable
 start_cluster=true
@@ -34,10 +38,6 @@ deploy_jrni_image=false
 deploy_api_gateway_image=false
 deploy_mfe_image=false
 deploy_jenkins_image=false
-
-# database
-run_prod_db=true
-db_name=$MONGO
 
 #------------- Istio related configuration  : Start -----------------#
 enable_kiali=true
@@ -130,28 +130,25 @@ then
 fi
 
 
-# Mysql image
-if ${run_prod_db} eq true
+# Database image
+run_prod_db=false
+if [ ${db_name} = $MONGO ]
 then
-   if [ ${db_name} = $MONGO ]
-   then
-      kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/mongo/mongo_kind.yaml
-      echo "Sleeping 30 second for MONGO-DB startup 🌲 😴 🌲 🈯️ ✅ 💪🏽 👩🏻‍🦱 🧑🏾‍🦰"
-      sleep 30
-   else
-     if [ ${db_name} = $MYSQL ]
-        kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/mysql/mysql_kind.yaml
-        echo "Sleeping 1 min 40 second for MY-SQL startup 🌲 😴 🌲 🈯️ ✅ 💪🏽 👩🏻‍🦱 🧑🏾‍🦰"
-        sleep 100 
-     then
-     else
-       echo "⛔️ ⛔️ ⛔️ You provided a database name ${db_name} which is invalid. Please provide a valid database name ⛔️ ⛔️ ⛔️"   
-     fi
-   fi
+   run_prod_db=true
+   kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/mongo/mongo_kind.yaml
+   echo "Sleeping 1 min for MONGO-DB startup 🌲 😴 🌲 🈯️ ✅ 💪🏽 👩🏻‍🦱 🧑🏾‍🦰"
+   sleep 60
 else
-   echo "⛔️ ⛔️ ⛔️ sprintbootsecurity is set to connect with IN-MEMORY h2 database and this is not a production standard. You must set run_prod_db=true to use my-sql or MONGO_DB when deploying in production environment ⛔️ ⛔️ ⛔️"
+   if [ ${db_name} = $MYSQL ]
+   then
+      run_prod_db=true
+      kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/mysql/mysql_kind.yaml
+      echo "Sleeping 1 min 40 second for MY-SQL startup 🌲 😴 🌲 🈯️ ✅ 💪🏽 👩🏻‍🦱 🧑🏾‍🦰"
+      sleep 100 
+   else
+       echo "⛔️ ⛔️ ⛔️ sprintbootsecurity is set to connect with IN-MEMORY h2 database and this is not a production standard. You must set [db_name] to MYSQL or MONGO when deploying in production environment ⛔️ ⛔️ ⛔️" 
+   fi
 fi
-
 
 ########################################################
 # Creating all required images into a cluster
@@ -204,7 +201,7 @@ if ${deploy_webapp_image} eq true
 then
   export ENV_TARGET=local
   export ENV_DATABASE=h2
-  
+
   if ${run_prod_db} eq true
   then
      ENV_TARGET=prod
@@ -215,8 +212,6 @@ then
        if [ ${db_name} = $MYSQL ]
        then
          ENV_DATABASE=my-sql
-       else
-         echo "⛔️ ⛔️ ⛔️ You provided a database name ${db_name} which is invalid. Please provide a valid database name ⛔️ ⛔️ ⛔️"   
        fi
      fi
   fi
