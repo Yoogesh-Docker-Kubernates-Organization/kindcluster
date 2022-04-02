@@ -14,12 +14,12 @@ echo "Also DON'T forget to provide the extraMounts hostpath for Jenkins and mysq
 #####################################################################################
 
 # Constant
-LOCAL='local'
+LOCAL='h2'
 MONGO='mongo'
-MYSQL='mysql'
+MYSQL='my-sql'
 
 # database
-db_name=$LOCAL
+db_name=$MYSQL
 
 # cluster variable
 start_cluster=true
@@ -131,21 +131,20 @@ fi
 
 
 # Database image
-run_prod_db=false
+run_prod_db=true
 if [ ${db_name} = $MONGO ]
 then
-   run_prod_db=true
    kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/mongo/mongo_kind.yaml
    echo "Sleeping 1 min for MONGO-DB startup 🌲 😴 🌲 🈯️ ✅ 💪🏽 👩🏻‍🦱 🧑🏾‍🦰"
    sleep 60
 else
    if [ ${db_name} = $MYSQL ]
    then
-      run_prod_db=true
       kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/mysql/mysql_kind.yaml
       echo "Sleeping 1 min 40 second for MY-SQL startup 🌲 😴 🌲 🈯️ ✅ 💪🏽 👩🏻‍🦱 🧑🏾‍🦰"
       sleep 100 
    else
+       run_prod_db=false
        echo "⛔️ ⛔️ ⛔️ sprintbootsecurity is set to connect with IN-MEMORY h2 database and this is not a production standard. You must set [db_name] to MYSQL or MONGO when deploying in production environment ⛔️ ⛔️ ⛔️" 
    fi
 fi
@@ -205,15 +204,7 @@ then
   if ${run_prod_db} eq true
   then
      ENV_TARGET=prod
-     if [ ${db_name} = $MONGO ]
-     then
-       ENV_DATABASE=mongo
-     else
-       if [ ${db_name} = $MYSQL ]
-       then
-         ENV_DATABASE=my-sql
-       fi
-     fi
+     ENV_DATABASE=${db_name}
   fi
 
   kind load docker-image yoogesh1983/springbootsecurity --name twm-digital
