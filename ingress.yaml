@@ -48,7 +48,7 @@ spec:
             name: twm-jrni-api
             port:
               number: 80
-
+              
   - host: selenium.fleetman.com
     http:
       paths:
@@ -59,4 +59,5 @@ spec:
             name: selenium-hub
             port:
               number: 4444
+              
               
