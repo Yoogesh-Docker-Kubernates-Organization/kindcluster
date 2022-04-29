@@ -1,0 +1,186 @@
+#####################################################################################################################
+
+# Repository location is here: https://github.com/SeleniumHQ/docker-selenium/tree/trunk/chart/selenium-grid 
+# Run below command to generate yaml file which will download the repository whereas the second command generate a yaml 
+     # git clone https://github.com/seleniumhq/docker-selenium.git
+     # helm template docker-selenium/chart/selenium-grid > selenium.yaml
+# This is the cutdown version of the generated yaml where firefox and edge browser is excluded
+
+######################################################################################################################
+---
+# Source: selenium-grid/templates/event-bus-configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: selenium-event-bus-config
+  namespace: default
+  labels:
+    app.kubernetes.io/managed-by: helm
+    app.kubernetes.io/instance: RELEASE-NAME
+    app.kubernetes.io/version: 4.1.4-20220427
+    app.kubernetes.io/component: selenium-grid-4.1.4-20220427
+    helm.sh/chart: selenium-grid-0.3.0
+data:
+  SE_EVENT_BUS_HOST: selenium-hub
+  SE_EVENT_BUS_PUBLISH_PORT: "4442"
+  SE_EVENT_BUS_SUBSCRIBE_PORT: "4443"
+---
+# Source: selenium-grid/templates/chrome-node-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: selenium-chrome-node
+  namespace: default
+  labels:
+    name: selenium-chrome-node
+    app.kubernetes.io/managed-by: helm
+    app.kubernetes.io/instance: RELEASE-NAME
+    app.kubernetes.io/version: 4.1.4-20220427
+    app.kubernetes.io/component: selenium-grid-4.1.4-20220427
+    helm.sh/chart: selenium-grid-0.3.0
+spec:
+  type: ClusterIP
+  selector:
+    app: selenium-chrome-node
+  ports:
+    - name: tcp-chrome
+      protocol: TCP
+      port: 6900
+      targetPort: 5900
+
+---
+# Source: selenium-grid/templates/hub-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: selenium-hub
+  namespace: default
+  labels:
+    app: selenium-hub
+    app.kubernetes.io/managed-by: helm
+    app.kubernetes.io/instance: RELEASE-NAME
+    app.kubernetes.io/version: 4.1.4-20220427
+    app.kubernetes.io/component: selenium-grid-4.1.4-20220427
+    helm.sh/chart: selenium-grid-0.3.0
+spec:
+  selector:
+    app: selenium-hub
+  type: ClusterIP
+  ports:
+    - name: http-hub
+      protocol: TCP
+      port: 4444
+      targetPort: 4444
+    - name: tcp-hub-pub
+      protocol: TCP
+      port: 4442
+      targetPort: 4442
+    - name: tcp-hub-sub
+      protocol: TCP
+      port: 4443
+      targetPort: 4443
+---
+# Source: selenium-grid/templates/chrome-node-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: selenium-chrome-node
+  namespace: default
+  labels: &chrome_node_labels
+    app: selenium-chrome-node
+    app.kubernetes.io/name: selenium-chrome-node
+    app.kubernetes.io/managed-by: helm
+    app.kubernetes.io/instance: RELEASE-NAME
+    app.kubernetes.io/version: 4.1.4-20220427
+    app.kubernetes.io/component: selenium-grid-4.1.4-20220427
+    helm.sh/chart: selenium-grid-0.3.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: selenium-chrome-node
+  template:
+    metadata:
+      labels: *chrome_node_labels
+      annotations:
+        checksum/event-bus-configmap: 5fd1233bcfd63102ffd1fa10caba6190f283ad0d77456a347e1fba52b5cd5b3b
+    spec:
+      containers:
+        - name: selenium-chrome-node
+          image: selenium/node-chrome:4.1.4-20220427
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: selenium-event-bus-config
+          ports:
+            - containerPort: 5553
+              protocol: TCP
+          volumeMounts:
+            - name: dshm
+              mountPath: /dev/shm
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1Gi
+            requests:
+              cpu: "1"
+              memory: 1Gi
+      volumes:
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Gi
+---
+# Source: selenium-grid/templates/hub-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: selenium-hub
+  namespace: default
+  labels: &hub_labels
+    app: selenium-hub
+    app.kubernetes.io/name: selenium-hub
+    app.kubernetes.io/managed-by: helm
+    app.kubernetes.io/instance: RELEASE-NAME
+    app.kubernetes.io/version: 4.1.4-20220427
+    app.kubernetes.io/component: selenium-grid-4.1.4-20220427
+    helm.sh/chart: selenium-grid-0.3.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: selenium-hub
+  template:
+    metadata:
+      labels: *hub_labels
+    spec:
+      containers:
+        - name: selenium-hub
+          image: selenium/hub:4.1.4-20220427
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 4444
+              protocol: TCP
+            - containerPort: 4442
+              protocol: TCP
+            - containerPort: 4443
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /readyz
+              port: 4444
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 10
+            successThreshold: 1
+            failureThreshold: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 4444
+            initialDelaySeconds: 12
+            periodSeconds: 10
+            timeoutSeconds: 10
+            successThreshold: 1
+            failureThreshold: 10
+          envFrom:

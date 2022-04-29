@@ -18,8 +18,10 @@ LOCAL='h2'
 MONGO='mongo'
 MYSQL='my-sql'
 
-# database
-db_name=$MYSQL
+# database and test automation
+db_name=$LOCAL
+enable_cockroach=false
+enable_selenium=true
 
 # cluster variable
 start_cluster=true
@@ -147,6 +149,24 @@ else
        run_prod_db=false
        echo "⛔️ ⛔️ ⛔️ sprintbootsecurity is set to connect with IN-MEMORY h2 database and this is not a production standard. You must set [db_name] to MYSQL or MONGO when deploying in production environment ⛔️ ⛔️ ⛔️" 
    fi
+fi
+
+if ${enable_cockroach} eq true
+then
+   # For more information: https://www.cockroachlabs.com/docs/stable/deploy-cockroachdb-with-kubernetes.html
+   ############################################################################################################
+   kubectl apply -f https://raw.githubusercontent.com/cockroachdb/cockroach-operator/v2.5.3/install/crds.yaml
+   kubectl apply -f ${CLUSTER}/cockroach-operator.yaml
+   sleep 60 
+   kubectl apply -f ${CLUSTER}/cockroach-initialize.yaml
+fi
+
+########################################################
+# Selenium grid
+########################################################
+if ${enable_selenium} eq true
+then
+   kubectl apply -f ${CLUSTER}/selenium/selenium.yaml
 fi
 
 ########################################################
@@ -312,6 +332,11 @@ then
       #Nginex controller
       kubectl apply -f ${CLUSTER}/ingress.yaml
       echo "Cluster and plain kubernetes ingress controller successfully started and is available at port 32000 ..........👍 👍 👍"
+
+      if ${enable_cockroach} eq true
+      then
+         kubectl create -f https://raw.githubusercontent.com/cockroachdb/cockroach-operator/master/examples/client-secure-operator.yaml
+      fi
    fi
    
 else

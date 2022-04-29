@@ -11,12 +11,15 @@ nodes:
     containerPath: /mnt/data
   - hostPath: /Users/ysharma/Documents/Kubernetes/storage/mongo  # This is the mac laptop path where we want to store mongo data
     containerPath: /mnt/mongodb
+  - hostPath: /Users/ysharma/Documents/Kubernetes/storage/cochroach  # This is the mac laptop path where we want to store mongo data
+    containerPath: /mnt/cochroach
   - hostPath: /Users/ysharma/Documents/Kubernetes/storage/mysql  # This is the mac laptop path where we want to store mysql data
     containerPath: /mnt/data/mysql
   - hostPath: /var/run/docker.sock  # This is needed to run docker as a slave node inside a jenkins server inside a container
     containerPath: /var/run/docker.sock
 
   extraPortMappings:
+
   # Mapping jenkins nodeport 31000 to machines localhost:31000
   - containerPort: 31000
     hostPort: 31000
@@ -31,7 +34,12 @@ nodes:
   - containerPort: 443
     hostPort: 33000
     protocol: TCP
-  # Start: For Non-istio ingress
+
+  - containerPort: 4444
+    hostPort: 34000
+    listenAddress: "0.0.0.0"   # Note: binding the listenAddress to 127.0.0.1 may affect your ability to access the service
+    protocol: TCP
+  # End: For Non-istio ingress
 
   # Start: For Istio
   - containerPort: 30000
