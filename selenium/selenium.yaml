@@ -5,6 +5,7 @@
      # git clone https://github.com/seleniumhq/docker-selenium.git
      # helm template docker-selenium/chart/selenium-grid > selenium.yaml
 # This is the cutdown version of the generated yaml where firefox and edge browser is excluded
+# Live view password: secret
 
 ######################################################################################################################
 ---
@@ -184,3 +185,23 @@ spec:
             successThreshold: 1
             failureThreshold: 10
           envFrom:
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: basic-routing-selenium
+spec:
+  rules:         
+  - host: selenium.fleetman.com
+    http:
+      paths:
+      - pathType: Prefix
+        path: /
+        backend:
+          service:
+            name: selenium-hub
+            port:
+              number: 4444
+              
+              

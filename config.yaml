@@ -28,17 +28,14 @@ nodes:
 
   # Start: For Non-istio ingress
   - containerPort: 80
-    hostPort: 32000
+    hostPort: 32000   # Surprisingly this works for selenium as well even if the clusterIP port for that is 4444. No idea why.. may be 32000 points clouster 80 which goes to 4444 via 
+                      # basic-routing-selenium's selenium.fleetman.com ?
     protocol: TCP
     
   - containerPort: 443
     hostPort: 33000
     protocol: TCP
 
-  - containerPort: 4444
-    hostPort: 34000
-    listenAddress: "0.0.0.0"   # Note: binding the listenAddress to 127.0.0.1 may affect your ability to access the service
-    protocol: TCP
   # End: For Non-istio ingress
 
   # Start: For Istio

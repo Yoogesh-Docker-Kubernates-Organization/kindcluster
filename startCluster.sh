@@ -20,8 +20,6 @@ MYSQL='my-sql'
 
 # database and test automation
 db_name=$LOCAL
-enable_cockroach=false
-enable_selenium=true
 
 # cluster variable
 start_cluster=true
@@ -58,6 +56,10 @@ enableFaultInjection=false            # This will always redirects testers to th
 #circuit breaker
 enableCircuitBreaker=true
 #------------- Istio related configuration  : End -----------------#
+
+# Extra
+enable_cockroach=false
+enable_selenium=true
 
 
 # Constants
@@ -159,16 +161,6 @@ then
    kubectl apply -f ${CLUSTER}/cockroach-operator.yaml
    sleep 60 
    kubectl apply -f ${CLUSTER}/cockroach-initialize.yaml
-fi
-
-########################################################
-# Selenium grid
-########################################################
-if ${enable_selenium} eq true
-then
-   kubectl apply -f ${CLUSTER}/selenium/selenium.yaml
-   echo "😡😡😡😡 Sleeping 40 second for selenium grid 😡😡😡😡"
-   sleep 40
 fi
 
 ########################################################
@@ -333,12 +325,22 @@ then
    else
       #Nginex controller
       kubectl apply -f ${CLUSTER}/ingress.yaml
-      echo "Cluster and plain kubernetes ingress controller successfully started and is available at port 32000 ..........👍 👍 👍"
 
+      # Selenium grid
+      if ${enable_selenium} eq true
+      then
+         kubectl apply -f ${CLUSTER}/selenium/selenium.yaml
+         echo "😡😡😡😡 Sleeping 40 second for selenium grid 😡😡😡😡"
+         sleep 40
+      fi
+      
       if ${enable_cockroach} eq true
       then
          kubectl create -f https://raw.githubusercontent.com/cockroachdb/cockroach-operator/master/examples/client-secure-operator.yaml
+         echo "Cockroach db is running. You should now manually create a Database schema and table ㏈ 💽"
       fi
+
+      echo "Cluster and plain kubernetes ingress controller successfully started and is available at port 32000 ..........👍 👍 👍"
    fi
    
 else

@@ -49,15 +49,4 @@ spec:
             port:
               number: 80
               
-  - host: selenium.fleetman.com
-    http:
-      paths:
-      - pathType: Prefix
-        path: /
-        backend:
-          service:
-            name: selenium-hub
-            port:
-              number: 4444
-              
               
