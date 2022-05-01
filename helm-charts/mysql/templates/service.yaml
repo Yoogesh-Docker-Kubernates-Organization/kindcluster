@@ -1,7 +1,7 @@
 kind: Service
 apiVersion: v1
 metadata:
-  name: yoogesh-database
+  name: {{ .Release.Name }}-yoogesh-database
 spec:
   selector:
     app: yoogeshmysql
