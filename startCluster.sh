@@ -25,6 +25,10 @@ db_name=$LOCAL
 start_cluster=true
 enable_istio=false
 
+# Extra
+enable_cockroach=false
+enable_selenium=false
+
 #image creation variables
 create_webapp_image=false
 create_jrni_image=false
@@ -56,11 +60,6 @@ enableFaultInjection=false            # This will always redirects testers to th
 #circuit breaker
 enableCircuitBreaker=true
 #------------- Istio related configuration  : End -----------------#
-
-# Extra
-enable_cockroach=false
-enable_selenium=true
-
 
 # Constants
 CLUSTER=${REPOSITORY}kindcluster
@@ -144,7 +143,8 @@ then
 else
    if [ ${db_name} = $MYSQL ]
    then
-      kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/mysql/mysql_kind.yaml
+      #kubectl apply -f ${SPRING_BOOT_SECURITY}/src/main/resources/devops/k8s_aws/mysql/mysql_kind.yaml
+      helm install mysql-production-release ${CLUSTER}/helm-charts/mysql --set cluster.kind=true
       echo "Sleeping 1 min 40 second for MY-SQL startup 🌲 😴 🌲 🈯️ ✅ 💪🏽 👩🏻‍🦱 🧑🏾‍🦰"
       sleep 100 
    else

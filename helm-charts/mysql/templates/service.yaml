@@ -1,0 +1,11 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: yoogesh-database
+spec:
+  selector:
+    app: yoogeshmysql
+  ports:
+  - port: 3306
+  type: ClusterIP
+  

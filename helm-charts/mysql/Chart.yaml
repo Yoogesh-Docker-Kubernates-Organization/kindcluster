@@ -1,0 +1,12 @@
+apiVersion: v2
+name: mysql
+description: A Helm chart for MySQL database
+
+# The type will be either library or application. The library is advance where you want to share a function as a library to a multiple chart
+type: application
+
+# This is intended to be the version for chart. useful when you are publishing to a wide community !! but for internally noone care !!
+version: 0.1.0
+
+# This is the  internall application version number
+appVersion: "0.1.0"

@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+spec:
+  selector:
+    matchLabels:
+      app: yoogeshmysql
+  replicas: 1
+  template: # template for the pods
+    metadata:
+      labels:
+        app: yoogeshmysql
+    spec:
+      containers:
+      - name: mysql
+        image: {{ .Values.image }}
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: password
+        - name: MYSQL_DATABASE
+          value: myDatabase
+        volumeMounts:
+          - name: yoogesh-mysql-persistence
+            mountPath: /var/lib/mysql
+            
+{{- include "MyVolume" . | indent 6}}
