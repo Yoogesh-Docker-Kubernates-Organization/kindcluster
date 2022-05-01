@@ -330,7 +330,7 @@ then
       if ${enable_selenium} eq true
       then
          kubectl apply -f ${CLUSTER}/selenium/selenium.yaml
-         echo "😡😡😡😡 Sleeping 40 second for selenium grid 😡😡😡😡"
+         echo "😡 😡 😡 😡 Sleeping 40 second for selenium grid 😡 😡 😡 😡"
          sleep 40
       fi
       
